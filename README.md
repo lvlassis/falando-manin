@@ -1,6 +1,6 @@
 # Falando Manim
 
-Transpilador para Manim Python, para descrever cenas geométricas em uma outra linguagem.
+Compilador da linguagem Romântica
 
 Este repositório contém o projeto final da disciplina de Linguagens Formais ministrada pelo professor Maurício em 2026-1.
 

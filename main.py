@@ -1,7 +1,7 @@
 from verso.tokens import tokenize, verso_split
 
 def test_tokenize():
-    programa = """amor é rocha que quando quebra doi no peito # Comentário"""
+    programa = """amor é rocha que quando quebra doi no peito. # Comentário"""
 
     tokens = tokenize(programa)
     print(tokens)

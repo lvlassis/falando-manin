@@ -1,25 +1,61 @@
 from dataclasses import dataclass
-from os import error
-from typing import List
+from enum import Enum
+
+
+class TokenType(Enum):
+    WEAK = 'WEAK'
+    DOT = 'DOT'
+    COMMENT = 'COMMENT'
+    DECLARATION = 'DECLARATION'
+    VARIABLE = 'VARIABLE'
+    EOL = 'EOL'
+    PRIMITIVE_TYPE = 'PRIMITIVE_TYPE'
+    NUMERICAL_EXPRESSION = 'NUMERICAL_EXPRESSION'
+
+
+class PrimitiveType(Enum):
+    INTEGER = 'INTEGER'
+    FLOAT = 'FLOAT'
+
 
 @dataclass
 class Token:
-    type: str
-    value: str|None = None
-
-TOKEN_WEAK = 'WEAK'
-TOKEN_DOT = 'DOT'
-TOKEN_COMMENT = 'COMMENT'
-TOKEN_DECLARATION = 'DECLARATION'
-TOKEN_VARIABLE = 'VARIABLE'
-TOKEN_EOL = 'EOL'
-TOKEN_PRIMITIVE_TYPE = 'PRIMITIVE_TYPE'
-TOKEN_NUMERICAL_EXPRESSION = 'NUMERICAL_EXPRESSION'
-
-# Tipos
-TYPE_INTEGER = "INTEGER"
+    type: TokenType
+    value: str | PrimitiveType | None = None
 
 
+class TokenList:
+    def __init__(self, tokens: list[Token] | None = None):
+        self._tokens: list[Token] = tokens or []
+
+    def find(self, tipo: TokenType) -> tuple[Token, int] | None:
+        """ Retorna o primeiro token do tipo dado e seu índice, ou None """
+        return next(((t, i) for i, t in enumerate(self._tokens) if t.type == tipo), None)
+
+    def merge(self, start: int, end: int, token_type: TokenType) -> Token:
+        """ Substitui tokens[start:end] por um único token com os valores concatenados """
+        value = " ".join(t.value for t in self._tokens[start:end] if isinstance(t.value, str))
+        merged = Token(token_type, value or None)
+        self._tokens[start:end] = [merged]
+        return merged
+
+    def append(self, token: Token) -> None:
+        self._tokens.append(token)
+
+    def __iter__(self):
+        return iter(self._tokens)
+
+    def __getitem__(self, index):
+        return self._tokens[index]
+
+    def __setitem__(self, index, value):
+        self._tokens[index] = value
+
+    def __len__(self) -> int:
+        return len(self._tokens)
+
+    def __repr__(self) -> str:
+        return repr(self._tokens)
 
 
 def filter_comments(line: str) -> str:
@@ -43,91 +79,54 @@ def verso_split(line: str) -> list[str]:
     return words
 
 
-def tokenize(program: str) -> list[Token]:
+def tokenize(program: str) -> TokenList:
     """ Função que realiza a etapa de tokenização """
-
-    tokens = []
-    lines = program.splitlines()
-    for line in lines:
+    tokens = TokenList()
+    for line in program.splitlines():
         line = filter_comments(line)
-        words = verso_split(line)
+        line_tokens = TokenList()
 
-        line_tokens = []
-
-        # Tokenize Weak
-        for word in words:
+        for word in verso_split(line):
             token = tokenize_word_weak(word)
-            if token.type == TOKEN_COMMENT:
+            if token.type == TokenType.COMMENT:
                 break
             line_tokens.append(token)
 
-        # Tokenize Strong
-        line_tokens = tokenize_strong(line_tokens)
-        for token in line_tokens:
+        for token in tokenize_strong(line_tokens):
             tokens.append(token)
-        tokens.append(Token(TOKEN_EOL))
-        
+        tokens.append(Token(TokenType.EOL))
 
     return tokens
-
-
-def find_next(tipo: str, tokens: list[Token]) -> tuple[Token, int] | None:
-    return next(((t, i) for i, t in enumerate(tokens) if t.type == tipo), None)
-
-def group_tokens(tokens: list[Token], token_type = TOKEN_WEAK):
-    value = ""
-    for i, t in enumerate(tokens):
-        if t.value:
-            value += t.value
-        if i != len(tokens) - 1:
-            value += " "
-    return Token(token_type, value)
 
 
 def tokenize_word_weak(word: str) -> Token:
     """ Tokeniza uma palavra individualmente """
     word = word.strip().lower()
     if word == ".":
-        return Token(TOKEN_DOT)
+        return Token(TokenType.DOT)
     elif word == "é":
-        return Token(TOKEN_DECLARATION)
+        return Token(TokenType.DECLARATION)
     elif word == "rocha":
-        return Token(TOKEN_PRIMITIVE_TYPE, TYPE_INTEGER)
-    return Token(TOKEN_WEAK, word)
+        return Token(TokenType.PRIMITIVE_TYPE, PrimitiveType.INTEGER)
+    return Token(TokenType.WEAK, word)
 
 
-def tokenize_strong(line_tokens: List[Token]) -> List[Token]:
+def tokenize_strong(line_tokens: TokenList) -> TokenList:
     """ Classifica os Tokens Fracos com base na sintaxe """
-    
-    # Encontra os tokens classificados
-    tokens_classificados = []
-    for i, token in enumerate(line_tokens):
-        if token.type != TOKEN_WEAK:
-            tokens_classificados.append((token, i))
-    
-    # Busca se a linha possui alguma declaração de variável
-    result = next(((t, i) for t, i in tokens_classificados if t.type == TOKEN_DECLARATION), None)
+    tokens_classificados = [(t, i) for i, t in enumerate(line_tokens) if t.type != TokenType.WEAK]
+
+    result = next(((t, i) for t, i in tokens_classificados if t.type == TokenType.DECLARATION), None)
     if result:
-        # Classifica a variável
         _, pos = result
-        line_tokens[pos-1].type = TOKEN_VARIABLE
+        line_tokens[pos-1].type = TokenType.VARIABLE
 
-        # Classifica os tokens de value
-        if line_tokens[pos+1].type != TOKEN_PRIMITIVE_TYPE:
-             raise error("Erro de sintaxe, esperado token de tipo primitivo")
+        if line_tokens[pos+1].type != TokenType.PRIMITIVE_TYPE:
+            raise SyntaxError("Esperado token de tipo primitivo após declaração")
 
-        if line_tokens[pos+1].value == TYPE_INTEGER:
-            final = find_next(TOKEN_DOT, line_tokens)
-            if not final:
-                final = find_next(TOKEN_EOL, line_tokens)
+        if line_tokens[pos+1].value == PrimitiveType.INTEGER:
+            final = line_tokens.find(TokenType.DOT) or line_tokens.find(TokenType.EOL)
             if final:
                 _, i = final
-                numerical_tokens = line_tokens[pos+2:i]
-                numerical_token = group_tokens(numerical_tokens, TOKEN_NUMERICAL_EXPRESSION)
-                for j in range(i-1, pos+1,  -1):
-                    line_tokens.pop(j)
-                line_tokens.insert(pos+2, numerical_token)
+                line_tokens.merge(pos+2, i, TokenType.NUMERICAL_EXPRESSION)
 
     return line_tokens
-
-

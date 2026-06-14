@@ -20,15 +20,6 @@ TOKEN_NUMERICAL_EXPRESSION = 'NUMERICAL_EXPRESSION'
 TYPE_INTEGER = "INTEGER"
 
 
-TOKEN_TYPES = [
-    'DECLARATION'
-    'PRIMITIVE_TYPE'
-    'DOT'
-    'COMMENT'
-
-    'VARIABLE'
-    'NUMERIC_EXPRESSION'
-]
 
 
 def filter_comments(line: str) -> str:

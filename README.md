@@ -6,8 +6,8 @@ Este repositório contém o projeto final da disciplina de Linguagens Formais mi
 
 ## Objetivos
 
-- [ ] 1. Delimitar o que a linguagem será capaz de descrever
-- [ ] 2. Definir a sintaxe da linguagem
+- [x] 1. Delimitar o que a linguagem será capaz de descrever
+- [x] 2. Definir a sintaxe da linguagem
 
 ## Escopo
 _Anotar as repostas dos objetivos 1 e 2._
